@@ -1,8 +1,8 @@
+import os
 from datetime import datetime, timedelta
 from time import sleep
 
 import httpx
-from decouple import config
 
 # Setting the variable "timestamp" to the current date and time.
 timestamp = datetime.now()
@@ -23,7 +23,7 @@ coming_soon_range = (timestamp + date_range).strftime("%Y-%m-%d")
 
 # Getting the value of the TMDB_API_KEY environment variable and assigning it to the variable
 # "api_key".
-api_key = config("TMDB_API_KEY")
+api_key = os.environ.get("TMDB_API_KEY")
 
 # Creating a variable called "base_url" and assigning it a string value. The string value is a url
 # that is used to make requests to the TMDB API. The url contains a placeholder for the API key. The
