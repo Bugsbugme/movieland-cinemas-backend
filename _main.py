@@ -16,26 +16,29 @@ from time import sleep
 
 import httpx
 
+from _utils import fetcher
+
 # Create date object for today's date, and date strings for 100 days before and from that date.
 today = datetime.now()
 now_showing_range = (today - timedelta(days=100)).strftime("%Y-%m-%d")
 coming_soon_range = (today + timedelta(days=100)).strftime("%Y-%m-%d")
 
 # Set the TMDB API key in environoment varibles
-api_key = os.environ.get("TMDB_API_KEY")
+API_KEY = f"?api_key={os.environ.get('TMDB_API_KEY')}"
 
 # Set the TMDB region in environoment varibles
 # This parameter is expected to be an ISO 3166-1 code - https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2.
 region = os.environ.get("TMDB_REGION")
-base_url = f"https://api.themoviedb.org/3/discover/movie?api_key={api_key}"
-query = f"&sort_by=popularity.desc&region={region}&include_adult=false&include_video=false&primary_release_date.gte={now_showing_range}&primary_release_date.lte={coming_soon_range}&with_release_type=3%7C2&with_original_language=en"
+BASE_URL = "https://api.themoviedb.org/3/"
+DISCOVER_URL = f"discover/movie{API_KEY}"
+MAIN_QUERY = f"&sort_by=popularity.desc&region={region}&include_adult=false&include_video=false&primary_release_date.gte={now_showing_range}&primary_release_date.lte={coming_soon_range}&with_release_type=3%7C2&with_original_language=en"
 
 database = {"movie_list": []}
 
 
 def get_release_info(data: list, fallback: str):
     """
-    It takes the release dates results from the movie details query, sorts them by region.
+    It takes the release dates results from the movie details query and sorts them by region.
     Then it filters out the theatrical release date from the first region that lists one.
     Prioritises the NZ region using the AU region as a fallback for the date and certification
     and US region as a fallback for the certification.
@@ -201,18 +204,6 @@ def movie_constructor(data: dict, released: bool):
 
 with httpx.Client() as client:
 
-    def fetcher(url: str):
-        try:
-            response = client.get(url)
-            response.raise_for_status()
-            # print(response.url)
-        except:
-            # TODO: Add logging function
-            raise
-        else:
-            data = response.json()
-            return data
-
     def get_movies(page_key=1):
         """
         It fetches the data from the TMDB API for each page of results, checks each movie has a backdrop and poster, checks if the movie
@@ -220,12 +211,16 @@ with httpx.Client() as client:
 
         :param page_key: The page number of the API call, defaults to 1 (optional)
         """
-        data = fetcher(f"{base_url}{query}&page={page_key}")
+        data = fetcher(f"{BASE_URL}{DISCOVER_URL}{MAIN_QUERY}&page={page_key}", client)
         total_pages = data["total_pages"]
         print(f"Page {page_key}/{total_pages}")
 
         for movie in data["results"]:
             movie_id = movie["id"]
+            MOVIE_URL = f"movie/{movie_id}{API_KEY}"
+            MOVIE_QUERY = (
+                "&language=en-US&append_to_response=videos,release_dates,videos,credits"
+            )
             release_date = datetime.strptime(movie["release_date"], "%Y-%m-%d").date()
             if movie["backdrop_path"] != None and movie["poster_path"] != None:
                 if (
@@ -235,7 +230,8 @@ with httpx.Client() as client:
                     and movie["popularity"] >= 3
                 ):
                     movie_details = fetcher(
-                        f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}&language=en-US&append_to_response=videos,release_dates,videos,credits"
+                        f"{BASE_URL}{MOVIE_URL}{MOVIE_QUERY}",
+                        client,
                     )
                     if movie_details["imdb_id"] != None:
                         print(
@@ -247,7 +243,8 @@ with httpx.Client() as client:
                         )
                 elif release_date >= today.date() and movie["popularity"] >= 3:
                     movie_details = fetcher(
-                        f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}&language=en-US&append_to_response=videos,release_dates,videos,credits"
+                        f"{BASE_URL}{MOVIE_URL}{MOVIE_QUERY}",
+                        client,
                     )
                     if movie_details["imdb_id"] != None:
                         print(
